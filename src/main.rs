@@ -10,6 +10,7 @@ mod ws;
 
 #[derive(Clone)]
 pub struct Client {
+    pub topic: Option<String>,
     pub sender: Option<mpsc::UnboundedSender<std::result::Result<Message, warp::Error>>>
 }
 

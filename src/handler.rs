@@ -30,13 +30,18 @@ impl ClientHandler {
     self.clients.lock().await.insert(
       id,
       Client {
+        topic: Some(String::from("teste\n")),
         sender: None
       }
     );
   }
 
   pub async fn unregister_client_handler(&self, id: String) -> Result<impl Reply> {
-    self.clients.lock().await.remove(&id);
-    Ok(StatusCode::OK)
+    let removed_client = self.clients.lock().await.remove(&id);
+
+    match removed_client {
+      Some(_) => Ok(StatusCode::OK),
+      None => Err(warp::reject::not_found())
+    }
   }
 }

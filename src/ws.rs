@@ -70,7 +70,34 @@ impl ClientWebSocket {
     };
 
     if message == "ping" || message == "ping\n" {
+      ClientWebSocket::publish_msg_to_client(id, "pong", clients).await;
       return;
     }
-  }   
+
+    ClientWebSocket::publish_msg_by_topic(message, message, clients).await;    
+  }  
+
+  async fn publish_msg_by_topic(topic: &str, msg: &str, clients: &Clients) {
+    clients
+      .lock()
+      .await
+      .iter_mut()
+      .filter(|(_, client)| match &client.topic {
+        Some(t) => t == topic,
+        None => false
+      })
+      .for_each(|(_, client)| {
+        if let Some(sender) = &client.sender {
+          let _ = sender.send(Ok(Message::text(msg)));
+        }
+      });
+  }
+
+  async fn publish_msg_to_client(client_id: &str,msg: &str, clients: &Clients) {
+    if let Some(c) = clients.lock().await.get(client_id).cloned() {
+      if let Some(sender) = &c.sender {
+          let _ = sender.send(Ok(Message::text(msg)));
+      }
+    }
+  }    
 }
