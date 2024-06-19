@@ -7,6 +7,7 @@ use ws::ClientWebSocket;
 
 mod handler;
 mod ws;
+mod game;
 
 #[derive(Clone)]
 pub struct Client {
