@@ -1,5 +1,6 @@
 use std::{collections::HashMap, convert::Infallible, sync::Arc};
 
+use game::Game;
 use handler::ClientHandler;
 use tokio::sync::{mpsc, Mutex};
 use warp::{filters::ws::Message, reject::Rejection, Filter};
@@ -8,21 +9,25 @@ use ws::ClientWebSocket;
 mod handler;
 mod ws;
 mod game;
+mod game_controller;
 
 #[derive(Clone)]
 pub struct Client {
-    pub topic: Option<String>,
+    pub game_id: Option<String>,
     pub sender: Option<mpsc::UnboundedSender<std::result::Result<Message, warp::Error>>>
 }
 
 type Result<T> = std::result::Result<T, Rejection>;
 type Clients = Arc<Mutex<HashMap<String, Client>>>;
+type Games = Arc<Mutex<HashMap<String, Game>>>;
 
 #[tokio::main]
 async fn main() {
     let clients: Clients = Arc::new(Mutex::new(HashMap::new()));
+    let games: Games = Arc::new(Mutex::new(HashMap::new()));
+
     let client_handler = ClientHandler::new(clients.clone());
-    let client_websocket = ClientWebSocket::new(clients.clone());
+    let client_websocket = ClientWebSocket::new(clients.clone(), games);
 
     let health_route = warp::path!("health")
     .and(with_handler(client_handler.clone()))

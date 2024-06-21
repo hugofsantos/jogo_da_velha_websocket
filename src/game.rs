@@ -22,7 +22,7 @@ impl Game {
     }
   }
 
-  pub fn add_player(&mut self, player_id: String) -> Result<char, &str> {
+  pub fn add_player(&mut self, player_id: String) -> Result<char, &'static str> {
     if self.players.len() >= 2 {
       return Err("O jogo está completo");
     }
@@ -50,6 +50,10 @@ impl Game {
   fn reset_game(&mut self) {
     self.board = [[' '; 3]; 3];
     self.current_turn = 'X';
+  }
+
+  pub fn number_of_players(&self) -> usize {
+    self.players.len()
   }
 
   pub fn make_move(&mut self, player_id: &str, row: usize, col: usize) -> ResultOfTheMove{

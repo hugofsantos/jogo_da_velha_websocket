@@ -3,16 +3,17 @@ use tokio::sync::mpsc::{self};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use warp::{filters::ws::{Message, WebSocket}, reply::Reply};
 
-use crate::{Client, Clients, Result};
+use crate::{Client, Clients, Games, Result};
 
 #[derive(Clone)]
 pub struct ClientWebSocket {
-  clients: Clients
+  clients: Clients,
+  games: Games
 }
 
 impl ClientWebSocket {
-  pub fn new(clients: Clients) -> Self {
-    ClientWebSocket {clients}
+  pub fn new(clients: Clients, games: Games) -> Self {
+    ClientWebSocket {clients, games}
   }  
 
   pub async fn ws_handler(&self, ws: warp::ws::Ws, id: String) -> Result<impl Reply> {
@@ -74,16 +75,16 @@ impl ClientWebSocket {
       return;
     }
 
-    ClientWebSocket::publish_msg_by_topic(message, message, clients).await;    
+    ClientWebSocket::publish_msg_by_game_id(message, message, clients).await;    
   }  
 
-  async fn publish_msg_by_topic(topic: &str, msg: &str, clients: &Clients) {
+  async fn publish_msg_by_game_id(game_id: &str, msg: &str, clients: &Clients) {
     clients
       .lock()
       .await
       .iter_mut()
-      .filter(|(_, client)| match &client.topic {
-        Some(t) => t == topic,
+      .filter(|(_, client)| match &client.game_id {
+        Some(game) => game == game_id,
         None => false
       })
       .for_each(|(_, client)| {

@@ -30,7 +30,7 @@ impl ClientHandler {
     self.clients.lock().await.insert(
       id,
       Client {
-        topic: Some(String::from("teste\n")),
+        game_id: None,
         sender: None
       }
     );
