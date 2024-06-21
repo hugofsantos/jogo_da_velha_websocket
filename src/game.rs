@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
-enum ResultOfTheMove {
+pub enum ResultOfTheMove {
   MarkedCell,
   Win,
-  Draw
+  Draw,
+  Error(&'static str)
 }
 
 pub struct Game {
@@ -51,30 +52,30 @@ impl Game {
     self.current_turn = 'X';
   }
 
-  pub fn make_move(&mut self, player_id: &str, row: usize, col: usize) -> Result<ResultOfTheMove, &str> {
+  pub fn make_move(&mut self, player_id: &str, row: usize, col: usize) -> ResultOfTheMove{
     if self.board[row][col] != ' ' {
-      return Err("Esta célula já foi preenchida")
+      return ResultOfTheMove::Error("Esta célula já foi preenchida")
     }
 
     if let Some(&symbol) = self.players.get(player_id) {
       if symbol != self.current_turn {
-        return Err("Não é sua vez de jogar")
+        return ResultOfTheMove::Error("Não é sua vez de jogar")
       }
 
       self.board[row][col] = symbol; 
       self.current_turn = if self.current_turn == 'X' {'O'} else {'X'};
 
       if self.is_winner(player_id) {
-        return Ok(ResultOfTheMove::Win)
+        return ResultOfTheMove::Win
       }
 
       if self.board_is_filled() {
-        return Ok(ResultOfTheMove::Draw)
+        return ResultOfTheMove::Draw
       }
 
-      return Ok(ResultOfTheMove::MarkedCell)
+      ResultOfTheMove::MarkedCell
     } else {
-      return Err("Player não encontrado");
+      return ResultOfTheMove::Error("Player não encontrado");
     } 
   }
 
