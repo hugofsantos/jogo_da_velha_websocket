@@ -66,20 +66,20 @@ impl Game {
       self.current_turn = if self.current_turn == 'X' {'O'} else {'X'};
 
       if self.is_winner(player_id) {
-        return ResultOfTheMove::Win
+        return {self.reset_game(); ResultOfTheMove::Win}
       }
 
       if self.board_is_filled() {
-        return ResultOfTheMove::Draw
+        return {self.reset_game() ;ResultOfTheMove::Draw}
       }
 
       ResultOfTheMove::MarkedCell
     } else {
-      return ResultOfTheMove::Error("Player não encontrado");
+      return ResultOfTheMove::Error("Não existe nenhum player com esse ID no jogo");
     } 
   }
 
-  pub fn board_is_filled(&self) -> bool {
+  fn board_is_filled(&self) -> bool {
     let board_size = self.board.len();
 
     for l in 0..=board_size {
@@ -93,7 +93,7 @@ impl Game {
     true
   }
 
-  pub fn is_winner(&self, player_id: &str) -> bool {
+  fn is_winner(&self, player_id: &str) -> bool {
     if let Some(player_symbol) = self.players.get(player_id) {
       self.win_by_horizontal(*player_symbol) ||
       self.win_by_vertical(*player_symbol) ||
