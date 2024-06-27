@@ -22,7 +22,7 @@ type Clients = Arc<Mutex<HashMap<String, Client>>>;
 type Games = Arc<Mutex<HashMap<String, Game>>>;
 
 #[tokio::main]
-async fn main() {
+async fn main() { 
     let clients: Clients = Arc::new(Mutex::new(HashMap::new()));
     let games: Games = Arc::new(Mutex::new(HashMap::new()));
 
@@ -61,8 +61,9 @@ async fn main() {
 
     let routes = health_route
         .or(register_client_routes)
-        .or(ws_route);
-    
+        .or(ws_route)
+        .with(warp::cors().allow_any_origin());
+
     warp::serve(routes).run(([127, 0, 0, 1], 8000)).await;
 }
 

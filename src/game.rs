@@ -32,7 +32,7 @@ impl Game {
     Ok(symbol)
   }
 
-  pub fn remove_player(&mut self, player_id: &str) -> Result<(), &str> {
+  pub fn remove_player(&mut self, player_id: &str) -> Result<(), &'static str> {
     if self.players.remove(player_id).is_some() {
       if self.players.len() == 1 {
         let remaining_player_id = self.players.keys().next().unwrap();
