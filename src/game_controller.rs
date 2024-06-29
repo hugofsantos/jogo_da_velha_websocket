@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, result};
 
 use uuid::Uuid;
 
-use crate::{game::Game, Clients, Games};
+use crate::{game::{Game, ResultOfTheMove}, Clients, Games};
 
 pub enum ResultOfAddPlayerToGame {
   PlayerAdded {player_symbol: char, number_of_players: usize},
@@ -90,4 +90,30 @@ async fn create_game_with_one_player(player_id: &str, clients: &Clients, games: 
     } else {
       Err("Não foi encontrado nenhum jogador com esse ID")
     }    
+}
+
+pub async fn make_move(player_id: &str, clients: &Clients, games: &Games, position: usize) -> Result<ResultOfTheMove,  &'static str> {
+  let mut client_guard = clients.lock().await;
+  let client = client_guard.get_mut(player_id);
+  let mut games_guard = games.lock().await;
+
+  if let Some(c) = client {
+    let game_id = match c.game_id.clone() {
+      Some(s) => s,
+      None => return Err("ID do jogo não rechonecido"),
+    };
+    let game_id = game_id.as_str();
+
+    let game = match games_guard.get_mut(game_id){
+      Some(g) => g,
+      None => return Err("Jogo não encontrado")
+    };
+    let row = position / 3;
+    let col = position % 3;
+    let result = game.make_move(player_id, row, col);
+    Ok(result)
+
+  } else {
+    Err("Cliente não encontrado")
+  } 
 }
