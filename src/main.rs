@@ -5,11 +5,13 @@ use handler::ClientHandler;
 use tokio::sync::{mpsc, Mutex};
 use warp::{filters::ws::Message, reject::Rejection, Filter};
 use ws::ClientWebSocket;
+use commands::{Command, ParseCommandError};
 
 mod handler;
 mod ws;
 mod game;
 mod game_controller;
+mod commands;
 
 #[derive(Clone)]
 pub struct Client {

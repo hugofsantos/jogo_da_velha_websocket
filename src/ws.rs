@@ -3,7 +3,7 @@ use tokio::sync::mpsc::{self};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use warp::{filters::ws::{Message, WebSocket}, reply::Reply};
 
-use crate::{Client, Clients, Games, Result};
+use crate::{game::ResultOfTheMove, game_controller::make_move, Client, Clients, Command, Games, ParseCommandError, Result};
 
 #[derive(Clone)]
 pub struct ClientWebSocket {
@@ -19,18 +19,19 @@ impl ClientWebSocket {
   pub async fn ws_handler(&self, ws: warp::ws::Ws, id: String) -> Result<impl Reply> {
     let clients = self.clients.clone();
     let client = clients.lock().await.get(&id).cloned();
+    let games = self.games.clone();
 
     match client {
       Some(c) => Ok(
         ws.on_upgrade(
-          move |socket| ClientWebSocket::client_connection(socket, id, clients, c)
+          move |socket| ClientWebSocket::client_connection(socket, id, clients, c, games)
         )
       ),
       None => Err(warp::reject::not_found())
     }
   }  
 
-  pub async fn client_connection(ws: WebSocket, id: String, clients: Clients, mut client: Client) {
+  pub async fn client_connection(ws: WebSocket, id: String, clients: Clients, mut client: Client, games: Games) {
     let (client_ws_sender, mut client_ws_receiver) = ws.split();
     let (client_sender, client_receiver) = mpsc::unbounded_channel();
 
@@ -41,7 +42,7 @@ impl ClientWebSocket {
         eprintln!("Erro ao enviar mensagem no websocket: {}", e);
       }
     }));
-
+    
     client.sender = Some(client_sender);
     clients.lock().await.insert(id.clone(), client);
     println!("{id} connected!");
@@ -55,20 +56,54 @@ impl ClientWebSocket {
         }
       };
 
-      ClientWebSocket::client_msg(&id, msg, &clients).await;      
+
+      ClientWebSocket::client_msg(&id, msg, &clients, &games).await;      
     }
 
     clients.lock().await.remove(&id);
     println!("{id} desconectado");
   }  
 
-  async fn client_msg(id: &str, msg: Message, clients: &Clients) {
+  async fn client_msg(id: &str, msg: Message, clients: &Clients, games: &Games) {
     println!("Mensagem recebida de {}: {:?}", id, msg);
 
     let message = match msg.to_str() {
       Ok(v) => v,
       Err(_) => return
     };
+
+    match Command::from_str(message) {
+      Ok(Command::MakeMove {position }) =>  {
+       let mut result = make_move(id, clients, games, position).await;
+       
+       match result {
+          Ok(ResultOfTheMove::Draw) => {
+            ClientWebSocket::publish_msg_by_game_id(todo!(), "O jogo empatou", clients);
+          },
+          Ok(ResultOfTheMove::MarkedCell) => {
+            let str = format!("Posição {position} marcada com sucesso");
+          },
+          Ok(ResultOfTheMove::Win) => {
+            let str = format!("Jogador {id} venceu");
+          },
+          Ok(ResultOfTheMove::Error(str)) => {
+            str;
+          },
+          Err(str) => {
+            str;
+          }
+       }
+      },
+      Ok(Command::JoinGame) => {
+
+      },
+      Err(ParseCommandError::InvalidCommand) => {
+
+      },
+      Err(ParseCommandError::InvalidParameters) => {
+
+      },
+    }
 
     if message == "ping" || message == "ping\n" {
       ClientWebSocket::publish_msg_to_client(id, "pong", clients).await;

@@ -7,6 +7,7 @@ pub enum ResultOfTheMove {
   Error(&'static str)
 }
 
+#[derive(Clone)]
 pub struct Game {
   board: [[char; 3];3],
   current_turn: char,
