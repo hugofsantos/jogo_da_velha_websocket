@@ -3,7 +3,7 @@ use tokio::sync::mpsc::{self};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use warp::{filters::ws::{Message, WebSocket}, reply::Reply};
 
-use crate::{game::ResultOfTheMove, game_controller::make_move, Client, Clients, Command, Games, ParseCommandError, Result};
+use crate::{game::ResultOfTheMove, game_controller::{join_game, make_move, ResultOfAddPlayerToGame}, Client, Clients, Command, Games, ParseCommandError, Result};
 
 #[derive(Clone)]
 pub struct ClientWebSocket {
@@ -67,6 +67,13 @@ impl ClientWebSocket {
   async fn client_msg(id: &str, msg: Message, clients: &Clients, games: &Games) {
     println!("Mensagem recebida de {}: {:?}", id, msg);
 
+    let game_id = match clients.lock().await.get(id) {
+        Some(client) => client.game_id.clone().unwrap(), //TODO: Tratar a exceção ao invés de entrar em pânico
+        None => return
+    }; 
+
+    let game_id = game_id.as_str();
+
     let message = match msg.to_str() {
       Ok(v) => v,
       Err(_) => return
@@ -74,43 +81,70 @@ impl ClientWebSocket {
 
     match Command::from_str(message) {
       Ok(Command::MakeMove {position }) =>  {
-       let mut result = make_move(id, clients, games, position).await;
+       let result = make_move(id, clients, games, position).await;
        
        match result {
           Ok(ResultOfTheMove::Draw) => {
-            ClientWebSocket::publish_msg_by_game_id(todo!(), "O jogo empatou", clients);
+            let message = "O jogo empatou";
+
+            ClientWebSocket::publish_msg_by_game_id(game_id, message, clients).await;
           },
           Ok(ResultOfTheMove::MarkedCell) => {
-            let str = format!("Posição {position} marcada com sucesso");
+            let message = format!("Posição '{position}' foi marcada com sucesso");
+            let message = message.as_str();
+
+            ClientWebSocket::publish_msg_by_game_id(game_id, message, clients).await;
           },
           Ok(ResultOfTheMove::Win) => {
-            let str = format!("Jogador {id} venceu");
+            let message = format!("Jogador {id} venceu");
+            let message = message.as_str();
+
+            ClientWebSocket::publish_msg_by_game_id(game_id, message, clients).await;
           },
-          Ok(ResultOfTheMove::Error(str)) => {
-            str;
+          Ok(ResultOfTheMove::Error(message)) => {
+            ClientWebSocket::publish_msg_by_game_id(game_id, message, clients).await;
           },
-          Err(str) => {
-            str;
+          Err(message) => {
+            ClientWebSocket::publish_msg_by_game_id(game_id, message, clients).await;
           }
        }
       },
       Ok(Command::JoinGame) => {
+        let result = join_game(id, clients, games).await;
+
+        match result {
+            ResultOfAddPlayerToGame::PlayerAdded { player_symbol, number_of_players } => {
+              let message = format!("Jogador '{player_symbol}'({id}) adicionado");
+              let message = message.as_str();
+
+              ClientWebSocket::publish_msg_by_game_id(game_id, message, clients).await;
+
+              let message = format!("Número de jogadores: {number_of_players}. O Jogo irá começar");
+              let message = message.as_str();
+
+              ClientWebSocket::publish_msg_by_game_id(game_id, message, clients).await;
+
+            },
+            ResultOfAddPlayerToGame::Error(message) => {
+              ClientWebSocket::publish_msg_by_game_id(game_id, message, clients).await;
+            },
+        }
+
 
       },
       Err(ParseCommandError::InvalidCommand) => {
-
+        let message = format!("Comando {message} inválido");
+        let message = message.as_str();
+        
+        ClientWebSocket::publish_msg_to_client(id, message, clients).await;
       },
       Err(ParseCommandError::InvalidParameters) => {
+        let message = format!("Parâmetros para o comando '{message}' são inválidos");
+        let message = message.as_str();
 
+        ClientWebSocket::publish_msg_to_client(id, message, clients).await;
       },
-    }
-
-    if message == "ping" || message == "ping\n" {
-      ClientWebSocket::publish_msg_to_client(id, "pong", clients).await;
-      return;
-    }
-
-    ClientWebSocket::publish_msg_by_game_id(message, message, clients).await;    
+    }  
   }  
 
   async fn publish_msg_by_game_id(game_id: &str, msg: &str, clients: &Clients) {
