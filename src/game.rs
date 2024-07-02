@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 pub enum ResultOfTheMove {
-  MarkedCell,
-  Win,
+  MarkedCell(char),
+  Win(char),
   Draw,
   Error(&'static str)
 }
@@ -71,14 +71,14 @@ impl Game {
       self.current_turn = if self.current_turn == 'X' {'O'} else {'X'};
 
       if self.is_winner(player_id) {
-        return {self.reset_game(); ResultOfTheMove::Win}
+        return {self.reset_game(); ResultOfTheMove::Win(symbol)}
       }
 
       if self.board_is_filled() {
         return {self.reset_game() ;ResultOfTheMove::Draw}
       }
 
-      ResultOfTheMove::MarkedCell
+      ResultOfTheMove::MarkedCell(symbol)
     } else {
       return ResultOfTheMove::Error("Não existe nenhum player com esse ID no jogo");
     } 
@@ -87,9 +87,9 @@ impl Game {
   fn board_is_filled(&self) -> bool {
     let board_size = self.board.len();
 
-    for l in 0..=board_size {
-      for c in 0..=board_size {
-        if self.board[l][c] != ' ' { // Se está preenchido
+    for l in 0..board_size {
+      for c in 0..board_size {
+        if self.board[l][c] == ' ' { // Se não está preenchido
           return false;
         }
       }

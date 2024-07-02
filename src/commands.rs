@@ -19,7 +19,7 @@ impl Command {
         }
   
         match parts[0] {
-            "make_move" if parts.len() == 2 => {
+            "make_play" if parts.len() == 2 => {
                 let position = parts[1].parse().map_err(|_| ParseCommandError::InvalidParameters)?;
                 if position >= 1 && position <= 9 {
                     Ok(Command::MakeMove { position })

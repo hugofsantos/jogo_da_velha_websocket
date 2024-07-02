@@ -5,7 +5,7 @@ use uuid::Uuid;
 use crate::{game::{Game, ResultOfTheMove}, Clients, Games};
 
 pub enum ResultOfAddPlayerToGame {
-  PlayerAdded {player_symbol: char, number_of_players: usize},
+  PlayerAdded {player_symbol: char, number_of_players: usize, game_id: String},
   Error (&'static str)
 }
 
@@ -18,7 +18,7 @@ pub async fn join_game(player_id: &str, clients: &Clients, games: &Games) -> Res
     add_player_to_game(player_id, game_id, game, clients).await
   } else {
     match create_game_with_one_player(player_id, clients, &mut games_guard).await {
-      Ok(_) => ResultOfAddPlayerToGame::PlayerAdded { player_symbol: 'X', number_of_players: 1 },
+      Ok(game_id) => ResultOfAddPlayerToGame::PlayerAdded { player_symbol: 'X', number_of_players: 1, game_id },
       Err(msg) => ResultOfAddPlayerToGame::Error(msg)
     }
   }
@@ -35,7 +35,8 @@ async fn add_player_to_game(player_id: &str, game_id:&str, game: &mut Game, clie
           c.game_id = Some(String::from(game_id));
           ResultOfAddPlayerToGame::PlayerAdded { 
             player_symbol: symbol, 
-            number_of_players: game.number_of_players() 
+            number_of_players: game.number_of_players(),
+            game_id: String::from(game_id) 
           }
         },
         Err(msg) => ResultOfAddPlayerToGame::Error(msg)
@@ -73,7 +74,7 @@ pub async fn remove_player_from_game(player_id: &str, clients: &Clients, games: 
   }
 }
 
-async fn create_game_with_one_player(player_id: &str, clients: &Clients, games: &mut HashMap<String, Game>) -> Result<(), &'static str> {
+async fn create_game_with_one_player(player_id: &str, clients: &Clients, games: &mut HashMap<String, Game>) -> Result<String, &'static str> {
     let mut client_guard = clients.lock().await;
     let client = client_guard.get_mut(player_id);
 
@@ -82,8 +83,15 @@ async fn create_game_with_one_player(player_id: &str, clients: &Clients, games: 
         let uuid = Uuid::new_v4().simple().to_string();
         let game = Game::new();
 
-        games.insert(uuid, game);
-        Ok(())
+        if let None = games.insert(uuid.clone(), game) {
+          let game = games.get_mut(&uuid).unwrap();
+          game.add_player(String::from(player_id)).unwrap();
+          c.game_id = Some(String::from(uuid.clone()));
+
+          Ok(uuid)
+        }else {
+          Err("Erro ao criar partida")
+        }
       } else {
         Err("Esse jogador já está em uma partida")
       }
@@ -108,8 +116,9 @@ pub async fn make_move(player_id: &str, clients: &Clients, games: &Games, positi
       Some(g) => g,
       None => return Err("Jogo não encontrado")
     };
-    let row = position / 3;
-    let col = position % 3;
+    let row = (position - 1) / 3;
+    let col = (position - 1) % 3;
+    println!("({row}, {col})");
     let result = game.make_move(player_id, row, col);
     Ok(result)
 
