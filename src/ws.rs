@@ -3,7 +3,7 @@ use tokio::sync::mpsc::{self};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use warp::{filters::ws::{Message, WebSocket}, reply::Reply};
 
-use crate::{game::ResultOfTheMove, game_controller::{join_game, make_move, ResultOfAddPlayerToGame}, Client, Clients, Command, Games, ParseCommandError, Result};
+use crate::{game::ResultOfTheMove, game_controller::{join_game, make_move, remove_player_from_game, ResultOfAddPlayerToGame}, Client, Clients, Command, Games, ParseCommandError, Result};
 
 #[derive(Clone)]
 pub struct ClientWebSocket {
@@ -60,8 +60,7 @@ impl ClientWebSocket {
       ClientWebSocket::client_msg(&id, msg, &clients, &games).await;      
     }
 
-    clients.lock().await.remove(&id);
-    println!("{id} desconectado");
+    ClientWebSocket::disconnect_client(&id, &clients, &games).await;
   }  
 
   async fn client_msg(id: &str, msg: Message, clients: &Clients, games: &Games) {
@@ -172,4 +171,13 @@ impl ClientWebSocket {
           None => String::new()
       }
   }  
+
+  async fn disconnect_client(client_id: &str, clients: &Clients, games: &Games) {
+    let game_id = ClientWebSocket::get_game_id_by_client_id(client_id, clients).await;
+    let _ = remove_player_from_game(client_id, &clients, &games).await;
+    ClientWebSocket::publish_msg_by_game_id(game_id.as_str(), "X", clients).await;
+    ClientWebSocket::publish_msg_by_game_id(game_id.as_str(), "waiting_players", clients).await;
+    clients.lock().await.remove(client_id);
+    println!("{client_id} desconectado");    
+  }
 }
